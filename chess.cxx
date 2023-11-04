@@ -1,42 +1,40 @@
 #include <iostream>
-#include <array>
-#include <vector>
-#include <bitset>
-#include <cstring>
+#include <string>
+#include "chess.h"
+#include "print_board.h"
 
-using u8 = unsigned char;
-using i8 = char;
-using u64 = unsigned long;
+// Arrays object
+Arrays arrays;
 
-enum {WHITE, BLACK, PAWNS, ROOKS, KNIGHTS, BISHOPS, QUEENS, KINGS};
-std::array<u64, 8> pieces = {
-    0x000000000000FFFF, // WHITE
-    0xFFFF000000000000, // BLACK
-    0x00FF00000000FF00, // PAWNS
-    0x8100000000000081, // ROOKS
-    0x4200000000000042, // KNIGHTS
-    0x2400000000000024, // BISHOPS
-    0x1000000000000010, // QUEENS
-    0x0800000000000008, // KINGS
-};
-
-std::array<u64, 64> potential_moves;
-
-// convert a binary number to an array index
-// e.g. 0b1000 0000 = 7
-i8 get_arr_pos(u64 binary_val) { 
-    for (int i=0; i<64; i++) {
-        if (binary_val >> i == 1) return i;
-    }
-    return -1;
-}
-
-
-// convert an array index into a binary number
+// convert an array index into a binary number with n trailing 0's
 // e.g. 7 = 0b1000 0000
 u64 get_bin_num(i8 arr_indx) { 
     return u64(1) << arr_indx;
 }
+
+//u64 shift(char direction, u64 bin_val, u8 amt, u32 opts) {
+//    // OPTS:
+//    //   MOVE_ONE_ROW -- only move one row, will ret 0 if more than 1 row
+//    //   MOVE_TWO_ROWS -- only move 2 rows, no more or less
+//    //   MOVE_ANY_ROWS -- move any rows
+//    //   default -- don't move rows, only cols
+//
+//    if (opts & MOVE_ONE_ROW) {
+//        u8 index = __builtin_ctzl(bin_val);
+//
+//
+//    }
+//    else if (opts & MOVE_TWO_ROW) {
+//    }
+//    else if (opts & MOVE_ANY_ROW) {
+//
+//    } else {
+//    }
+//    
+//
+//    return 0;
+//}
+
 
 // debugging functions
 
@@ -45,64 +43,55 @@ u64 get_bin_num(i8 arr_indx) {
     << " failed on line " << __LINE__ << std::endl \
     << x << " does not equal " << y << "\n" ; }
 
-template<typename T, typename Tn>
-bool equals(T val_one, Tn val_two) {
-    if (val_one != val_two) { 
-        std::cout << __FUNCTION__ 
-        << " failed on line " << __LINE__ << std::endl 
-        << val_one << " does not equal " << val_two << "\n" ;
-        return false;
-    }
-    return true;
-}
-
 void run_tests() {
-    EQUALS(get_arr_pos(0x8000000000000000), 63);
-    EQUALS(get_arr_pos(0x0000000000000001), 0);
+    EQUALS(__builtin_ctzl(0x8000000000000000), 63);
+    EQUALS(__builtin_ctzl(0x0000000000000001), 0);
+    EQUALS(__builtin_ctzl(0x0000001000000000), 36);
 
-    EQUALS(get_bin_num(62), 0x8000000000000000);
+    EQUALS(get_bin_num(63), 0x8000000000000000);
     EQUALS(get_bin_num(0), 0x0000000000000001);
 }
 
-void print_piece_map(u64 board) {
-    std::array<char, 8> rows = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
-    std::array<char, 8> cols = {'8', '7', '6', '5', '4', '3', '2', '1'};
+u64 gen_moves_rook(u64 piece, u64 obstacles) {
+    u8 piece_pos = __builtin_ctzl(piece);
 
-    auto print_rows = [&]{
-        std::cout << "\n   ";
-        for (char ch : rows) {
-            std::cout << ch << " ";
-        }
-        std::cout << "\n";
-    };
+    u8 row = piece_pos / 8;
+    u8 col = piece_pos % 8;
 
-    std::string str_board = std::bitset<64>(board).to_string() ;
+    u64 all_moves = arrays.cols[col] ^ arrays.rows[row];
 
-    print_rows();
-    std::cout <<'\n';
+    print_piece_map(all_moves);
+    print_piece_map(obstacles);
+    
+    //for (int i = 7; i>=0; i--) {
+    //}
 
-    std::string row;
-    int count = 0;
-    for (int i = 0; i < int(str_board.length()); i++) {
-        count++;
-        if (i==0) row+=' ';
-        row += str_board[i];
-        row += ' ';
-
-        if (count % 8==0) {
-            std::cout << cols[count/8-1] << " " << row << "\n";
-            row = ' ';
-        } 
-    }
-
-    print_rows();
+    return all_moves;
 }
 
+u64 get_diag_moves(u64 piece_pos) {
+    return 0;
+}
 
+u64 get_line_moves(u64 piece_pos) {
+    return 0;
+}
+
+void gen_moves() {
+    u64 piece;
+    bool is_white;
+    for (u8 i = 0; i<64; i++) {
+        piece = get_bin_num(i);
+        if (piece & arrays.pieces[WHITE]) is_white = true;
+
+
+        
+    }
+}
 
 int main(int argc, char** argv) {
     if (argc==2) {
-        if (!std::strcmp(argv[1], "-test")) {
+        if (std::string(argv[1]) == "-test") {
             std::cout << "running unit tests\n";
             run_tests();
         }
