@@ -22,9 +22,19 @@ enum { WHITE, BLACK, PAWNS, ROOKS,
 enum { TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT,  // moves_list
        BOTTOM, BOTTOM_LEFT, LEFT, TOP_LEFT };
 
+// options
+namespace opt {
+    enum { STRAIGHT, DIAG };
+}
+
+
 // arrays
 struct Arrays {
     std::array<u64, 64> potential_moves;
+
+    const std::array<u8, 4> MSB = {
+        RIGHT, BOTTOM_RIGHT, BOTTOM, BOTTOM_LEFT
+    };
 
     const std::array<u64, 8> pieces = {
         0x000000000000FFFF, // WHITE

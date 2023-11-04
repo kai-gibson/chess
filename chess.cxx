@@ -1,15 +1,22 @@
 #include <iostream>
 #include <string>
+#include <algorithm>
 #include "chess.h"
 #include "print_board.h"
+
 
 // Arrays object
 Arrays arrays;
 
 // convert an array index into a binary number with n trailing 0's
 // e.g. 7 = 0b1000 0000
-u64 get_bin_num(i8 arr_indx) { 
+inline u64 get_bin_num(i8 arr_indx) { 
     return u64(1) << arr_indx;
+}
+
+template<class _container, class _Ty>
+inline bool in_list(_container _C, const _Ty& _Val) {
+    return std::find(_C.begin(), _C.end(), _Val) != _C.end();
 }
 
 //u64 shift(char direction, u64 bin_val, u8 amt, u32 opts) {
@@ -35,8 +42,6 @@ u64 get_bin_num(i8 arr_indx) {
 //    return 0;
 //}
 
-
-// debugging functions
 
 // unit tests
 #define EQUALS(x,y) { if (x != y) std::cout << __FUNCTION__ \
@@ -69,23 +74,92 @@ u64 gen_moves_rook(u64 piece, u64 obstacles) {
     return all_moves;
 }
 
-u64 get_diag_moves(u64 piece_pos) {
+
+u64 get_path_moves(u64 piece_pos, bool is_white, u8 direction) {
+    u64 moves = 0;
+    for (u8 i=direction; i<8; i+=2) { // for diagonals
+        // get direction & with all pieces
+        u64 barriers = arrays.moves_list[piece_pos][i] 
+            & (arrays.pieces[WHITE] | arrays.pieces[BLACK]);
+
+        // if top direction get LSB, else get MSB
+        u8 barrier_pos = (in_list(arrays.MSB, i) ? 
+             63 - __builtin_clzl(barriers) :
+            __builtin_ctzl(barriers));
+
+        // get the same direction from the LSB/MSB in barriers
+        // get resulting possible moves 
+        moves += arrays.moves_list[piece_pos][i] & 
+            ~arrays.moves_list[barrier_pos][TOP];
+    }
+
+    // filter so you can't take your own pieces
+    moves = moves & 
+        ~(is_white ? arrays.pieces[WHITE] : arrays.pieces[BLACK]);
+
+    return moves;
+}
+
+u64 get_knight_moves(u8 piece_pos, bool is_white) {
+    (void)is_white;
+    (void)piece_pos;
     return 0;
 }
 
-u64 get_line_moves(u64 piece_pos) {
+u64 get_pawn_moves(u8 piece_pos, bool is_white) {
+    (void)is_white;
+    (void)piece_pos;
+    return 0;
+}
+
+u64 get_king_moves(u8 piece_pos, bool is_white) {
+    (void)is_white;
+    (void)piece_pos;
     return 0;
 }
 
 void gen_moves() {
     u64 piece;
     bool is_white;
+    u64 moves;
+
+    // loop from H1 to A8
     for (u8 i = 0; i<64; i++) {
+        // get bitboard for current piece
         piece = get_bin_num(i);
+        moves = 0;
+
+        // check team
         if (piece & arrays.pieces[WHITE]) is_white = true;
 
-
-        
+        // check which piece it is
+        for (u8 j=2; j<8; j++) {
+            if (!(piece & arrays.pieces[j])) break;
+            switch (j) {
+                case PAWNS:
+                    moves = get_pawn_moves(i, is_white);
+                    break;
+                case ROOKS:
+                    moves = get_path_moves(i, is_white, opt::STRAIGHT);
+                    break;
+                case KNIGHTS:
+                    moves = get_knight_moves(i, is_white);
+                    break;
+                case BISHOPS:
+                    moves = get_path_moves(i, is_white, opt::DIAG);
+                    break;
+                case QUEENS:
+                    moves = get_path_moves(i, is_white, opt::STRAIGHT) 
+                        & get_path_moves(i, is_white, opt::DIAG);
+                    break;
+                case KINGS:
+                    moves = get_king_moves(i, is_white);
+                    break;
+                default:
+                    break;
+            }
+            arrays.potential_moves[i] = moves;
+        }
     }
 }
 
@@ -96,4 +170,17 @@ int main(int argc, char** argv) {
             run_tests();
         }
     }
+
+    /*
+    TODO:
+        - KING moves
+        - PAWN moves
+        - KNIGHT moves
+
+    For knights and kings I'll have an array of their possible moves 
+    for each tile they could be on
+    for pawns I can still do that but I also need to evaluate if they
+    can take a piece on their top right & left, as well as check for 
+    en passant
+    */
 }
