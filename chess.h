@@ -845,6 +845,7 @@ struct Arrays {
         0x0010A00000000000,
         0x0020400000000000
     };
+
     std::array<std::array<u64,4>, 64> pawn_moves = {{
         {
             0x0000000000000100, // WHITE_MOVE
@@ -1232,8 +1233,5 @@ struct Arrays {
         }
     }};
 };
-
-
-
 
 #endif //CHESS_H

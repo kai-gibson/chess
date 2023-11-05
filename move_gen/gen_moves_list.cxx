@@ -15,10 +15,11 @@ using u64 = unsigned long;
 enum { TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT, 
        BOTTOM, BOTTOM_LEFT, LEFT, TOP_LEFT };
 
-enum { WHITE_MOVE, WHITE_ATTACK, BLACK_MOVE, BLACK_ATTACK }; // pawn_moves
+enum { WHITE_MOVE, WHITE_ATTACK, WHITE_EP, 
+       BLACK_MOVE, BLACK_ATTACK, BLACK_EP }; // pawn_moves
 
 std::array<std::array<u64, 8>, 64> path_moves;
-std::array<std::array<u64,4>, 64> pawn_moves;
+std::array<std::array<u64,6>, 64> pawn_moves;
 std::array<u64, 64> king_moves;
 std::array<u64, 64> knight_moves;
 
@@ -49,6 +50,8 @@ void gen_moves_pawn() {
             }
         }
 
+        // get white en passant
+
         // Get black moves
         if (i/8 == 6) { // if first move, move once or twice
             pawn_moves[i][BLACK_MOVE] |= ((piece_pos >> 8) 
@@ -68,6 +71,8 @@ void gen_moves_pawn() {
                 pawn_moves[i][BLACK_ATTACK] |= piece_pos >> 9;
             }
         }
+
+        // get black en passant
     }
 }
 
@@ -329,9 +334,9 @@ int main(int argc, char** argv) {
         case PAWN: {
             gen_moves_pawn();
             if (!gen_all) {
-                std::array<std::string, 4> pawn_opts = { 
-                    "WHITE_MOVE", "WHITE_ATTACK", 
-                    "BLACK_MOVE", "BLACK_ATTACK"
+                std::array<std::string, 6> pawn_opts = { 
+                    "WHITE_MOVE", "WHITE_ATTACK", "WHITE_EP", 
+                    "BLACK_MOVE", "BLACK_ATTACK" "BLACK_EP"
                 };
 
                 for (int i=0; i < pawn_moves[pos].size(); i++) {
