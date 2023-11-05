@@ -79,7 +79,7 @@ u64 get_path_moves(u64 piece_pos, bool is_white, u8 direction) {
     u64 moves = 0;
     for (u8 i=direction; i<8; i+=2) { // for diagonals
         // get direction & with all pieces
-        u64 barriers = arrays.moves_list[piece_pos][i] 
+        u64 barriers = arrays.path_moves[piece_pos][i] 
             & (arrays.pieces[WHITE] | arrays.pieces[BLACK]);
 
         // if top direction get LSB, else get MSB
@@ -89,8 +89,8 @@ u64 get_path_moves(u64 piece_pos, bool is_white, u8 direction) {
 
         // get the same direction from the LSB/MSB in barriers
         // get resulting possible moves 
-        moves += arrays.moves_list[piece_pos][i] & 
-            ~arrays.moves_list[barrier_pos][TOP];
+        moves += arrays.path_moves[piece_pos][i] & 
+            ~arrays.path_moves[barrier_pos][TOP];
     }
 
     // filter so you can't take your own pieces
@@ -171,11 +171,13 @@ int main(int argc, char** argv) {
         }
     }
 
+    print_piece_map(arrays.pawn_moves[55][BLACK_ATTACK]);
+
     /*
     TODO:
-        - KING moves
-        - PAWN moves
-        - KNIGHT moves
+        [] - KING moves 
+        [] - PAWN moves
+        [] - KNIGHT moves
 
     For knights and kings I'll have an array of their possible moves 
     for each tile they could be on
