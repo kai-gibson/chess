@@ -10,16 +10,19 @@
 #define MOVE_ANY_ROW 0b100
 
 // types
-using u8 = unsigned char;
 using i8 = char;
+using i32 = int;
+using i64 = long;
+
+using u8 = unsigned char;
 using u32 = unsigned int;
 using u64 = unsigned long;
 
 // enums
-enum { WHITE, BLACK, PAWNS, ROOKS, 
-       KNIGHTS, BISHOPS, QUEENS, KINGS }; // pieces
+enum { WHITE, BLACK, PAWNS, ROOKS, // pieces
+       KNIGHTS, BISHOPS, QUEENS, KINGS }; 
 
-enum { TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT,  // moves_list
+enum { TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT, // moves_list
        BOTTOM, BOTTOM_LEFT, LEFT, TOP_LEFT };
 
 enum { WHITE_MOVE, WHITE_ATTACK, BLACK_MOVE, BLACK_ATTACK }; // pawn_moves

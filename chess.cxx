@@ -1,9 +1,9 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <chrono>
 #include "chess.h"
 #include "print_board.h"
-
 
 // Arrays object
 Arrays arrays;
@@ -104,20 +104,21 @@ i8 map_piece(u64 piece) {
     return -1;
 }
 
-void gen_moves() {
+void gen_moves(std::array<u64, 8> board) {
     u64 piece;
-    bool is_white = false;
     u64 moves;
 
     // loop from H1 to A8
     for (u8 i = 0; i<64; i++) {
         // get bitboard for current piece
+        bool is_white;
         piece = get_bin_num(i);
         moves = 0;
 
         // check team
-        if ((piece & arrays.pieces[WHITE]) != 0) is_white = true;
-        if (!is_white && !(piece & arrays.pieces[BLACK])) { // no piece
+        is_white = piece & board[WHITE];
+
+        if (!is_white && !(piece & board[BLACK])) { // no piece
             arrays.potential_moves[i] = 0;
             continue;
         } 
@@ -157,6 +158,7 @@ u64 moves_for(u8 start, u8 end) {
     }
     return moves;
 }
+
 // unit tests
 #define EQUALS(x,y) { if (x != y) std::cout << __FUNCTION__ \
     << " failed on line " << __LINE__ << std::endl \
@@ -178,23 +180,31 @@ int main(int argc, char** argv) {
             run_tests();
         }
     }
-    gen_moves();
 
-    //print_piece_map(arrays.knight_moves[1]);
-    //print_piece_map(arrays.pieces[KNIGHTS]);
-    print_piece_map(arrays.potential_moves[55]);
-    //print_piece_map(moves_for(48,55+1));
+    auto start = std::chrono::high_resolution_clock::now();
+
+    gen_moves(arrays.pieces);
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    {
+        using namespace std::chrono;
+        std::cout << "Took: " 
+                  << duration<double, std::milli>(end-start).count()
+                  << "ms\n";
+    }
+
+
+    print_piece_map(moves_for(0,63+1));
 
     /*
     TODO:
-        [] - KING moves 
-        [] - PAWN moves
-        [] - KNIGHT moves
-
-    For knights and kings I'll have an array of their possible moves 
-    for each tile they could be on
-    for pawns I can still do that but I also need to evaluate if they
-    can take a piece on their top right & left, as well as check for 
-    en passant
+        [] - Handle En Passant
+        [] - Handle Castling
+        [] - check for check
+               - if in check can't move without leaving check
+        [] - check for checkmate
+               - do I wanna gen all moves that could break check?
+        [] - Make func to actually move pieces
     */
 }
