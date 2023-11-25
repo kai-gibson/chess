@@ -3,6 +3,7 @@
 
 // includes
 #include <array>
+#include <vector>
 
 // macros
 #define MOVE_ONE_ROW 0b001
@@ -32,11 +33,35 @@ namespace opt {
     enum { STRAIGHT, DIAG };
 }
 
-// arrays
-struct Arrays {
-    std::array<u64, 64> potential_moves;
+// types
+typedef std::array<u64, 8> Pieces;
+typedef std::vector<u8> Piece_List;
 
-    std::array<u64, 8> pieces = {
+struct Board {
+    Piece_List white_pieces = {};
+    Piece_List black_pieces = {};
+    Piece_List pawns = {};
+    Piece_List rooks = {};
+    Piece_List knights = {};
+    Piece_List bishops = {};
+    Piece_List queens = {};
+    Piece_List kings = {};
+    Pieces pieces;
+};
+
+struct Moves {
+    std::array<u64, 64> potential_moves;
+    Board board;
+};
+
+struct Move_Piece {
+    bool res;
+    Pieces pieces;
+};
+
+// arrays constants
+struct Arrays {
+    const Pieces initial_positions = {
         0x000000000000FFFF, // WHITE
         0xFFFF000000000000, // BLACK
         0x00FF00000000FF00, // PAWNS
@@ -46,6 +71,7 @@ struct Arrays {
         0x1000000000000010, // QUEENS
         0x0800000000000008, // KINGS
     };
+
 
     const std::array<u8, 4> MSB = {
         RIGHT, BOTTOM_RIGHT, BOTTOM, BOTTOM_LEFT
