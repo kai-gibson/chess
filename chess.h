@@ -28,10 +28,14 @@ enum { TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT, // moves_list
 
 enum { WHITE_MOVE, WHITE_ATTACK, BLACK_MOVE, BLACK_ATTACK }; // pawn_moves
 
+enum { WHITE_KINGSIDE, WHITE_QUEENSIDE, 
+       BLACK_KINGSIDE, BLACK_QUEENSIDE}; // castling
+
 // options
 namespace opt {
     enum { STRAIGHT, DIAG };
 }
+
 
 // types
 typedef std::array<u64, 8> Pieces;
@@ -56,8 +60,13 @@ struct Moves {
 
 struct Move_Piece {
     bool res;
-    Pieces pieces;
+    Moves moves;
 };
+
+
+// functions 
+Moves gen_moves(Pieces pieces, bool filter_legal);
+Moves filter(Moves m, Piece_List pl, bool is_white);
 
 // arrays constants
 struct Arrays {
@@ -72,6 +81,12 @@ struct Arrays {
         0x0800000000000008, // KINGS
     };
 
+    const std::array<u64,4> castling = {
+        0x0000000000000006, // WHITE_KINGSIDE
+        0x0000000000000070, // WHITE_QUEENSIDE
+        0x0600000000000000, // BLACK_KINGSIDE
+        0x7000000000000000, // BLACK_QUEENSIDE
+    };
 
     const std::array<u8, 4> MSB = {
         RIGHT, BOTTOM_RIGHT, BOTTOM, BOTTOM_LEFT

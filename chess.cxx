@@ -1,16 +1,12 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
-#include <numeric>
 #include <chrono> // only used for benchmarking
 #include "chess.h"
 #include "print_board.h"
 
-Arrays arrays;
-
+const Arrays arrays; // array constants
 // Util functions
-
-
 u64 moves_for(Moves m, std::vector<u8> v) {
     u64 moves = 0;
     for (i8 i : v) {
@@ -99,7 +95,8 @@ i8 map_piece(Pieces p, u64 piece) {
     return -1;
 }
 
-Move_Piece move_piece(Moves m, i8 start, i8 end, bool is_white) {
+Move_Piece move_piece(Moves m, i8 start, i8 end, bool is_white, bool
+        gen=true) {
     if (!in_list((is_white 
                     ? m.board.white_pieces 
                     : m.board.black_pieces), 
@@ -108,7 +105,7 @@ Move_Piece move_piece(Moves m, i8 start, i8 end, bool is_white) {
         std::cerr << "Error, no " << (is_white ? "white " : "black ") 
                   << "piece at " << index_to_str(start) << "\n";
 
-        return { false, m.board.pieces }; // false means move couldn't be made
+        return { false, m }; // false means move couldn't be made
     }
 
     u64 end_bin = get_bin_num(end);
@@ -117,7 +114,7 @@ Move_Piece move_piece(Moves m, i8 start, i8 end, bool is_white) {
     if (!(end_bin & m.potential_moves.at(start))) {
         std::cerr << "Error, cannot move piece " << index_to_str(start) << " to " 
                   << index_to_str(end) << "\n";
-        return { false, m.board.pieces };
+        return { false, m };
     }
     
     // move is legal
@@ -132,6 +129,7 @@ Move_Piece move_piece(Moves m, i8 start, i8 end, bool is_white) {
         m.board.pieces.at(team) ^ start_bin;
 
     i8 enemy_team = is_white ? BLACK : WHITE;
+
     // if enemy at end pos, remove it
     if (m.board.pieces.at(enemy_team) & end_bin) {
         i8 enemy_piece_type = map_piece(m.board.pieces, end_bin);
@@ -141,6 +139,64 @@ Move_Piece move_piece(Moves m, i8 start, i8 end, bool is_white) {
 
         m.board.pieces.at(enemy_team) = 
             m.board.pieces.at(enemy_team) ^ end_bin;
+    } 
+
+    // take piece if en passant
+    else if (piece_type == PAWNS && (m.board.pieces.at(enemy_team) 
+        & (is_white ? (end_bin >> 8) : (end_bin << 8)) 
+        & (m.board.pieces.at(PAWNS)))) {
+
+        // clear the piece
+        m.board.pieces.at(PAWNS) = 
+            m.board.pieces.at(PAWNS) ^ (is_white 
+                    ? (end_bin >> 8) 
+                    : (end_bin << 8));
+
+        // clear from team
+        m.board.pieces.at(enemy_team) = 
+            m.board.pieces.at(enemy_team) ^ (is_white 
+                    ? (end_bin >> 8) 
+                    : (end_bin << 8));      
+    }
+
+    // handle promotion
+    if (piece_type == PAWNS && (end / 8 == (is_white ? 7 : 0))) {
+        piece_type = QUEENS;
+    } 
+
+    // handle castling
+    if (piece_type == KINGS && start == (is_white ? 3 : 59)
+            && (abs(end - start) == 2)) {
+
+        i8 rook_pos = (is_white ? 0 : 56);
+        i8 rook_end_pos = (is_white ? 0 : 56);
+
+        switch(end % 8) {
+            case 5:
+                rook_pos += 7;
+                rook_end_pos += 4;
+                break;
+            case 1:
+                rook_end_pos += 2;
+                break;
+            default:
+                throw std::runtime_error("FUCK!");
+                break;
+        }
+
+        m.board.pieces.at(ROOKS) = 
+            m.board.pieces.at(ROOKS) ^ get_bin_num(rook_pos);
+
+        m.board.pieces.at(team) = 
+            m.board.pieces.at(team) ^ get_bin_num(rook_pos);
+
+        m.board.pieces.at(ROOKS) = 
+            m.board.pieces.at(ROOKS) | get_bin_num(rook_end_pos);
+
+        m.board.pieces.at(team) = 
+            m.board.pieces.at(team) | get_bin_num(rook_end_pos);
+
+
     }
 
     // add end pos
@@ -150,27 +206,169 @@ Move_Piece move_piece(Moves m, i8 start, i8 end, bool is_white) {
     m.board.pieces.at(team) = 
         m.board.pieces.at(team) | end_bin;
 
-    return { true, m.board.pieces };
+
+    if (gen) {
+        // generate next turn's moves
+        m = gen_moves(m.board.pieces, false);
+
+        // check en_passant
+        // if pawn just moved 2 squares
+        if (piece_type == PAWNS && (start / 8 == (is_white ? 1 : 6) 
+                    && end / 8 == (is_white ? 3 : 4))) {
+            Piece_List pawns_ep;
+
+            // if space on right 
+            if (end % 8 >= 0) {
+                u64 right = end_bin >> 1;
+                if (m.board.pieces.at(is_white ? BLACK : WHITE) & right ) {
+                    pawns_ep.push_back(__builtin_ctzl(right));
+                }
+            }
+
+            // if space on left
+            if (end % 8 <= 7) {
+                u64 left = end_bin << 1;
+                if ((m.board.pieces.at(is_white ? BLACK : WHITE)
+                            & m.board.pieces.at(PAWNS)) & left) {
+
+                    pawns_ep.push_back(__builtin_ctzl(left));
+                }
+            }
+
+            // add move
+            for (u8 i : pawns_ep) {
+                m.potential_moves.at(i) |= (is_white 
+                        ? (end_bin >> 8)
+                        : (end_bin << 8));
+            }
+
+        }
+
+        // check castling
+
+        auto check_castling = [](Moves m, bool is_white, bool kingside)-> Moves {
+            i8 king_pos = __builtin_ctzl(m.board.pieces.at(KINGS) 
+                                     & m.board.pieces.at(is_white 
+                                         ? WHITE : BLACK));; 
+
+            i8 king_origin = is_white ? 3 : 59;
+            u64 rook_origin;
+            u8 side;
+            u64 move;
+            u8 team = is_white ? WHITE : BLACK;
+
+            if (is_white) {
+                side = kingside ? WHITE_KINGSIDE : WHITE_QUEENSIDE;
+                move = kingside ? 0x02 : 0x20;
+            } else {
+                side = kingside ? BLACK_KINGSIDE : BLACK_QUEENSIDE;
+                move = kingside ? 0x0200000000000000 : 0x2000000000000000;
+            }
+
+            if (kingside) {
+                rook_origin = is_white ? 0x01 : 0x0100000000000000;
+            } else {
+                rook_origin = is_white ? 0x80 : 0x8000000000000000;
+            }
+
+            if (king_pos == king_origin
+                && (m.board.pieces.at(ROOKS) 
+                    & m.board.pieces.at(team) 
+                        & rook_origin)) {
+
+                // if path unobstructed
+                if (!(arrays.castling.at(side) &
+                    (m.board.pieces.at(WHITE) |
+                    m.board.pieces.at(BLACK)))) {
+                    // add move
+                    m.potential_moves.at(king_pos) |= move;
+                }
+            }
+            return m;
+        };
+
+        //check_castling(true, true);
+        m = check_castling(m, enemy_team, true);
+        m = check_castling(m, enemy_team, false);
+        m = check_castling(m, team, true);
+        m = check_castling(m, team, false);
+        //check_castling(true, false);
+        //check_castling(false, true);
+        //check_castling(false, false);
+
+        //// check kingside castling
+        //if (king_pos == (is_white ? 3 : 59) 
+        //    && (m.board.pieces.at(ROOKS) 
+        //        & m.board.pieces.at(team) 
+        //            & (is_white ? 0x01 : 0x0100000000000000))) {
+
+        //    // if path unobstructed
+        //    if (!(arrays.castling.at(is_white 
+        //                    ? WHITE_KINGSIDE 
+        //                    : BLACK_KINGSIDE) &
+        //                (m.board.pieces.at(WHITE) |
+        //                m.board.pieces.at(BLACK)))) {
+
+        //        // add move
+        //        m.potential_moves.at(king_pos) |= (is_white 
+        //                ? 0x02 
+        //                : 0x0200000000000000);
+        //    }
+        //}
+
+        //// check queenside castling
+        //if (king_pos == (is_white ? 3 : 59) 
+        //    && (m.board.pieces.at(ROOKS) 
+        //        & m.board.pieces.at(team) 
+        //            & (is_white ? 0x80 : 0x8000000000000000))) {
+
+        //    // if path unobstructed
+        //    if (!(arrays.castling.at(is_white 
+        //                    ? WHITE_QUEENSIDE 
+        //                    : BLACK_QUEENSIDE) &
+        //                (m.board.pieces.at(WHITE) |
+        //                m.board.pieces.at(BLACK)))) {
+
+        //        // add move
+        //        m.potential_moves.at(king_pos) |= (is_white 
+        //                ? 0x20 
+        //                : 0x2000000000000000);
+        //    }
+        //}
+
+        // run filter to check if newly gen'd moves are legal
+        m = filter(m, m.board.white_pieces, true);
+        m = filter(m, m.board.black_pieces, false);
+    }
+
+    return { true, m };
 }
 
 // Move generation by piece
 u64 get_path_moves(Pieces p, u64 piece_pos, bool is_white, u8 direction) {
     u64 moves = 0;
     for (u8 i=direction; i<8; i+=2) { // for diagonals
-
         // get direction & with all pieces
-        u64 barriers = arrays.path_moves[piece_pos][i] 
+        u64 barriers = arrays.path_moves.at(piece_pos).at(i) 
             & (p.at(WHITE) | p.at(BLACK));
 
+
+        u8 barrier_pos = 0;
         // if bottom direction get MSB, else get LSB
-        u8 barrier_pos = (in_list(arrays.MSB, i) 
-                ? 63 - __builtin_clzl(barriers) 
-                : __builtin_ctzl(barriers));
+        if (barriers) {
+            barrier_pos = (in_list(arrays.MSB, i) 
+                    ? 63 - __builtin_clzl(barriers) 
+                    : __builtin_ctzl(barriers));
+        } 
 
         // get the same direction from the LSB/MSB in barriers
         // get resulting possible moves 
-        moves += arrays.path_moves[piece_pos][i] & 
-            ~arrays.path_moves[barrier_pos][i];
+        if (barrier_pos) {
+            moves += arrays.path_moves.at(piece_pos).at(i) & 
+                ~arrays.path_moves.at(barrier_pos).at(i);
+        } else {
+            moves += arrays.path_moves.at(piece_pos).at(i);
+        }
     }
 
     // filter so you can't take your own pieces
@@ -187,7 +385,7 @@ u64 get_knight_moves(Pieces p, u8 piece_pos, bool is_white) {
     //std::cout << "knight possible moves:\n";
     //print_piece_map(arrays.knight_moves[piece_pos]);
 
-    moves = arrays.knight_moves[piece_pos]
+    moves = arrays.knight_moves.at(piece_pos)
         & ~p.at(is_white ? WHITE : BLACK);
     //std::cout << "knight unobstructed moves:\n";
     //print_piece_map(moves);
@@ -200,24 +398,25 @@ u64 get_pawn_moves(Pieces p, u8 piece_pos, bool is_white) {
 
     if (is_white) {
         // can't move if a piece blocks
-        moves |= arrays.pawn_moves[piece_pos][WHITE_MOVE] 
+        moves |= arrays.pawn_moves.at(piece_pos).at(WHITE_MOVE)
             & ~(p.at(WHITE) | p.at(BLACK));
 
         // can only take if enemy in attack zone
-        moves |= arrays.pawn_moves[piece_pos][WHITE_ATTACK]
+        moves |= arrays.pawn_moves.at(piece_pos).at(WHITE_ATTACK)
             & p.at(BLACK);
     } else {
         // can't move if a piece blocks
-        moves |= arrays.pawn_moves[piece_pos][BLACK_MOVE] 
+        moves |= arrays.pawn_moves.at(piece_pos).at(BLACK_MOVE) 
             & ~(p.at(WHITE) | p.at(BLACK));
 
         // can only take if enemy in attack zone
-        moves |= arrays.pawn_moves[piece_pos][BLACK_ATTACK]
+        moves |= arrays.pawn_moves.at(piece_pos).at(BLACK_ATTACK)
             & p.at(WHITE);
     }
 
     // but en passant can only be done the turn after a dbl move...
     // check en passant
+
     return moves;
 }
 
@@ -225,12 +424,41 @@ u64 get_king_moves(Pieces p, u8 piece_pos, bool is_white) {
     u64 moves;
 
     // can't move if blocked by own side
-    moves = arrays.king_moves[piece_pos]
+    moves = arrays.king_moves.at(piece_pos)
         & ~p.at(is_white ? WHITE : BLACK);
 
     return moves;
 }
 
+Moves filter(Moves m, Piece_List pl, bool is_white) {
+    for (size_t i=0; i < pl.size(); i++) {
+        // get all moves for piece
+        i8 piece_pos = pl.at(i);
+        u64 moves = m.potential_moves.at(piece_pos); 
+
+        i8 curr_move = 0;
+        while (moves != 0) {
+            // get position of just this move
+            curr_move = __builtin_ctzl(moves); 
+            Move_Piece mp = move_piece(m, piece_pos, curr_move, is_white, false);
+
+            if (!mp.res) { 
+                throw std::runtime_error("You really fucked up\n");
+            }
+
+            Moves future = gen_moves(mp.moves.board.pieces, false);
+
+            // If king is in danger
+            if (king_in_danger(future, is_white)) {
+                // remove move from potentials
+                m.potential_moves.at(piece_pos) ^= get_bin_num(curr_move);
+            }
+        
+            moves ^= get_bin_num(curr_move); // remove from list
+        }
+    }
+    return m;
+};
 
 // Move generation for board
 Moves gen_moves(Pieces pieces, bool filter_legal=true) {
@@ -245,10 +473,10 @@ Moves gen_moves(Pieces pieces, bool filter_legal=true) {
         u64 moves = 0;
 
         // check team
-        is_white = piece & m.board.pieces[WHITE];
+        is_white = piece & m.board.pieces.at(WHITE);
 
-        if (!is_white && !(piece & m.board.pieces[BLACK])) { // no piece
-            m.potential_moves[i] = 0;
+        if (!is_white && !(piece & m.board.pieces.at(BLACK))) { // no piece
+            m.potential_moves.at(i) = 0;
             continue;
         } 
 
@@ -262,7 +490,8 @@ Moves gen_moves(Pieces pieces, bool filter_legal=true) {
                 m.board.pawns.push_back(i);
                 break;
             case ROOKS:
-                moves = get_path_moves(m.board.pieces, i, is_white, opt::STRAIGHT);
+                moves = get_path_moves(m.board.pieces, i, is_white, 
+                        opt::STRAIGHT);
                 m.board.rooks.push_back(i);
                 break;
             case KNIGHTS:
@@ -270,12 +499,15 @@ Moves gen_moves(Pieces pieces, bool filter_legal=true) {
                 m.board.knights.push_back(i);
                 break;
             case BISHOPS:
-                moves = get_path_moves(m.board.pieces, i, is_white, opt::DIAG);
+                moves = get_path_moves(m.board.pieces, i, is_white, 
+                        opt::DIAG);
                 m.board.bishops.push_back(i);
                 break;
             case QUEENS:
-                moves = get_path_moves(m.board.pieces, i, is_white, opt::STRAIGHT) 
-                        | get_path_moves(m.board.pieces, i, is_white, opt::DIAG);
+                moves = get_path_moves(m.board.pieces, i, 
+                                       is_white, opt::STRAIGHT) 
+                        | get_path_moves(m.board.pieces, i, 
+                                         is_white, opt::DIAG);
                 m.board.queens.push_back(i);
                 break;
             case KINGS:
@@ -286,7 +518,7 @@ Moves gen_moves(Pieces pieces, bool filter_legal=true) {
                 break;
         }
 
-        m.potential_moves[i] = moves;
+        m.potential_moves.at(i) = moves;
     }
 
     if (!filter_legal) return m;
@@ -295,46 +527,11 @@ Moves gen_moves(Pieces pieces, bool filter_legal=true) {
 
     // loop through all moves of all current team's pieces and check    
     // whether that move endangers the king, if it does, filter
-    //Piece_List pl = m.board.white_pieces; 
-    //bool is_white = true;
-
-    auto filter = [&](Piece_List pl, bool is_white) -> bool {
-        for (size_t i=0; i < pl.size(); i++) {
-            // get all moves for piece
-            i8 piece_pos = pl.at(i);
-            u64 moves = m.potential_moves.at(piece_pos); 
-
-            i8 curr_move = 0;
-            while (moves != 0) {
-                // get position of just this move
-                curr_move = __builtin_ctzl(moves); 
-                Move_Piece mp = move_piece(m, piece_pos, curr_move, is_white);
-
-                if (!mp.res) { std::cerr << "you fucked up\n"; return false; }
-
-                Moves future = gen_moves(mp.pieces, false);
-
-                // If king is in danger
-                if (king_in_danger(future, is_white)) {
-                    // remove move from potentials
-                    m.potential_moves.at(piece_pos) ^= get_bin_num(curr_move);
-                }
-            
-                moves ^= get_bin_num(curr_move); // remove from list
-            }
-        }
-        return true;
-    };
-
-    if (!filter(m.board.white_pieces, true) || 
-            !filter(m.board.black_pieces, false)) {
-        return {}; // something fucked up
-    }
+     m = filter(m, m.board.white_pieces, true);
+     m = filter(m, m.board.black_pieces, false);
 
     return m;
 }
-
-
 
 // unit tests
 #define EQUALS(x,y) { if (x != y) std::cout << __FUNCTION__ \
@@ -342,6 +539,16 @@ Moves gen_moves(Pieces pieces, bool filter_legal=true) {
     << x << " does not equal " << y << "\n" ; }
 
 void run_tests() {
+    const Pieces test_bishop = {
+        0x000000000010EFFF, // WHITE
+        0xFFFF000000000000, // BLACK
+        0x00FF00000010EF00, // PAWNS
+        0x8100000000000081, // ROOKS
+        0x4200000000000042, // KNIGHTS
+        0x2400000000000024, // BISHOPS
+        0x1000000000000010, // QUEENS
+        0x0800000000000008, // KINGS
+    };
     EQUALS(__builtin_ctzl(0x8000000000000000), 63);
     EQUALS(__builtin_ctzl(0x0000000000000001), 0);
     EQUALS(__builtin_ctzl(0x0000001000000000), 36);
@@ -358,8 +565,11 @@ void run_tests() {
     EQUALS(moves_for(m, 48,56), 0x0000FFFF00000000);
     EQUALS(moves_for(m, 56,64), 0x0000A50000000000);
 
-    {
-        using namespace std::chrono;
+    m = gen_moves(test_bishop);
+    pretty_print_board(test_bishop);
+    EQUALS(moves_for(m, m.board.bishops), 0x0000010204081000);
+
+    { using namespace std::chrono;
         std::cout << "Gen moves took: " 
                   << duration<double, std::milli>(end-start).count()
                   << "ms\n";
@@ -375,16 +585,12 @@ void run_tests() {
 }
 
 int main(int argc, char** argv) {
-    if (argc==2) {
+    if (argc == 2) {
         if (std::string(argv[1]) == "-test") {
             std::cout << "running unit tests\n";
             run_tests();
         }
     }
-
-
-    //print_piece_map(moves_for(0,63+1));
-
 
     std::string input;
     bool white_turn = true;
@@ -397,15 +603,10 @@ int main(int argc, char** argv) {
             << " expected something like 'A2 B3'\n";
     };
 
-
     Moves m = gen_moves(arrays.initial_positions);
 
     while (true) {
-        std::cout << "queen moves\n";
-        print_piece_map(moves_for(m, m.board.queens));
-
         pretty_print_board(m.board.pieces);
-        //print_piece_map(arrays.pieces.at(PAWNS));
 
         std::cout << (white_turn 
                 ? "White team's turn\n" 
@@ -417,8 +618,11 @@ int main(int argc, char** argv) {
                     ? m.board.white_pieces 
                     : m.board.black_pieces)) == 0) {
 
-            std::cout << "Checkmate!! " << (white_turn 
-                    ? "White" : "Black") << " team loses!\n";
+            std::cout << "Checkmate!! " 
+                      << (white_turn 
+                          ? "White" 
+                          : "Black") 
+                      << " team loses!\n";
             break;
         }
 
@@ -453,27 +657,8 @@ int main(int argc, char** argv) {
                                    str_to_index(end), white_turn);
 
         if (!mp.res) continue;
-
-        m.board.pieces = mp.pieces;
+        m = mp.moves;
 
         white_turn = !white_turn; // successful turn, piece moved
-        m = gen_moves(m.board.pieces); // regen board
     }
-    // en passant-- if piece has just moved 2 squares, you can take it 
-    // as if it only moved one
-
-    /*
-        I think I will run every move and see what's actually legal,
-        since it should be quick, and so a backend call doesn't have to
-        be awaited before we can render the next board position
-    */
-    /*
-    TODO:
-        [] - Handle En Passant
-        [] - Handle Castling
-        [] - check for check
-               - if in check can't move without leaving check
-        [] - check for checkmate
-               - do I wanna gen all moves that could break check?
-    */
 }
