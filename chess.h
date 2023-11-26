@@ -63,11 +63,6 @@ struct Move_Piece {
     Moves moves;
 };
 
-
-// functions 
-Moves gen_moves(Pieces pieces, bool filter_legal);
-Moves filter(Moves m, Piece_List pl, bool is_white);
-
 // arrays constants
 struct Arrays {
     const Pieces initial_positions = {
