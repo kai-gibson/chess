@@ -1,7 +1,9 @@
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <algorithm>
-#include <chrono> // only used for benchmarking
+#include <chrono> 
+#include <thread>
 #include "chess.h"
 #include "print_board.h"
 
@@ -597,15 +599,26 @@ int main(int argc, char** argv) {
     size_t space_pos;
     std::string start;
     std::string end;
+    std::stringstream error;
 
     auto error_out = [&]() { 
-        std::cerr << input << " is incorrect format," 
+        error.str("");
+        error.clear();
+        error << "\n" << input << " is incorrect format," 
             << " expected something like 'A2 B3'\n";
     };
 
     Moves m = gen_moves(arrays.initial_positions);
 
     while (true) {
+        for (int i=0; i<64; i++) {
+            std::cout << "                                         "
+                      << "                                         \n";
+        }
+        std::cout << "\033[0;64H"; // move cursor up 56 lines
+
+        if (error.str() != "") std::cout << error.str();
+
         pretty_print_board(m.board.pieces);
 
         std::cout << (white_turn 
@@ -657,6 +670,9 @@ int main(int argc, char** argv) {
                                    str_to_index(end), white_turn);
 
         if (!mp.res) continue;
+
+        error.str("");
+        error.clear();
         m = mp.moves;
 
         white_turn = !white_turn; // successful turn, piece moved
