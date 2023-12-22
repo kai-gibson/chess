@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <chrono> 
 #include <thread>
-#include "chess.h"
-#include "move_generation.h"
+
+#include "../move_generation.h"
 #include "print_board.h"
 
 // unit tests
@@ -25,9 +25,9 @@ void run_tests() {
         0x1000000000000010, // QUEENS
         0x0800000000000008, // KINGS
     };
-    EQUALS(__builtin_ctzl(0x8000000000000000), 63);
-    EQUALS(__builtin_ctzl(0x0000000000000001), 0);
-    EQUALS(__builtin_ctzl(0x0000001000000000), 36);
+    EQUALS(CTZ(0x8000000000000000), 63);
+    EQUALS(CTZ(0x0000000000000001), 0);
+    EQUALS(CTZ(0x0000001000000000), 36);
 
     EQUALS(get_bin_num(63), 0x8000000000000000);
     EQUALS(get_bin_num(0), 0x0000000000000001);
@@ -108,8 +108,8 @@ int main(int argc, char** argv) {
 
             std::cout << "Checkmate!! " 
                       << (white_turn 
-                          ? "White" 
-                          : "Black") 
+                            ? "White" 
+                            : "Black") 
                       << " team loses!\n";
             break;
         }

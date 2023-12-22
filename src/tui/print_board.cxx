@@ -10,7 +10,7 @@ enum { WHITE, BLACK, PAWNS, ROOKS, // pieces
        KNIGHTS, BISHOPS, QUEENS, KINGS }; 
 
 
-void print_piece_map(unsigned long board) {
+void print_piece_map(u64 board) {
     std::array<char, 8> rows = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
     std::array<char, 8> cols = {'8', '7', '6', '5', '4', '3', '2', '1'};
 
@@ -49,7 +49,7 @@ void print_piece_map(unsigned long board) {
 #define WHITE "\x1b[30;47m"
 #define BLACK "\x1b[37;40m"
 
-void pretty_print_board(std::array<unsigned long, 8> pieces) {
+void pretty_print_board(std::array<u64, 8> pieces) {
     std::array<char, 8> rows = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
     std::array<char, 8> cols = {'8', '7', '6', '5', '4', '3', '2', '1'};
     std::array<char, 8> piece_chars = {0, 0, 'P', 'R', 'H', 'B', 'Q', 'K'};
